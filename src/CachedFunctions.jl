@@ -1,5 +1,7 @@
 module CachedFunctions
+import ForwardDiff
+export CachedFunction, input, output, evaluate, evaluate!, calls, allocate!
 
-greet() = print("Hello World!")
+include("cached_function.jl")
 
 end # module
