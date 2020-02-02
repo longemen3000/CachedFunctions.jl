@@ -87,3 +87,8 @@ out1 ==   output(f,Float64) #true
 ## I can do this myself, why did you do this?
 
 The problem occurs when you need to calculate jacobians of jacobians. how many caches i need to create? of what types?
+
+## I like it! but i want more functionality
+
+i'm open,really open to pull requests and issues. write something and we will se what we can do.
+
