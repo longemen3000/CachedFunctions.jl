@@ -67,7 +67,7 @@ cached version of f! (function with 3 cached methods)
 ```
 ## Accesing without evaluating
 
-by default, a ´CachedFunction´ does not store any type of x, so calling `f(x)` will just create a cache for ´out´ . If you also want to store the input values, you can use `evaluate!(f,x)`
+by default, a `CachedFunction` does not store any type of x, so calling `f(x)` will just create a cache for ´out´ . If you also want to store the input values, you can use `evaluate!(f,x)`
 
 ```julia
 x1 = [1.0,2.0,3.0]
