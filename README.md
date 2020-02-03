@@ -14,7 +14,8 @@ This package maybe can help you!
 
 This package works with implace functions of the form: `f(out,x)`, where:
 1. `eltype(x) == eltype(out)`
-2. `x` is of type Array
+2. `x` is of type Array.
+
 help on easing those limits is appreciated.
 
 ## usage
@@ -91,4 +92,5 @@ The problem occurs when you need to calculate jacobians of jacobians. how many c
 ## I like it! but i want more functionality
 
 i'm open,really open to pull requests and issues. write something and we will se what we can do.
+
 
