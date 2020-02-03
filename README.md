@@ -8,7 +8,7 @@ Problems defining a higher order jacobian with inplace functions?
 
 Out of names for the output caches?
 
-This package maybe can help you.
+This package maybe can help you!
 
 ## limits
 
@@ -35,13 +35,13 @@ x4 = rand(Float32,3)
 
 f = CachedFunction(f!,3,2) #if multidimentional, use CachedFunction(f!,(1,2),(2,3))
 f(x1) #allocates one time
-f(x2) #all caches created and allocated! 
+f(x2) #all caches created and allocated! f(x2) is evaluated without additional allocations.
 evaluate(f,x1) #other way to call the function
 f(x3) #a specific cache for Float32 is created
 f(x4) #no allocations, again.
 ```
 
-Let's see a little bit about what whe can do with this `f`
+Let's see a little bit more about what whe can do with this `f`
 
 ```julia-repl
 julia> f
@@ -54,9 +54,9 @@ IdDict{DataType,Function} with 2 entries:
   Float32 => #198
 ```
 All the cached methods are stored in `methods(f)`. you can take one and use it if you want. each method is a closure
-with the specific cache created.
+with the specific cache created. and if the cache doesn't exists, it's created on the fly during runtime.
 
-What happens if i dont want allocate during runtime?, The solution: use `allocate!(f,Type)`
+What happens if i don't want to allocate during runtime?, The solution: use `allocate!(f,Type)`
 
 ```julia-repl
 julia> f
@@ -67,7 +67,7 @@ cached version of f! (function with 3 cached methods)
 ```
 ## Accesing without evaluating
 
-by default, a `CachedFunction` does not store any type of x, so calling `f(x)` will just create a cache for ´out´ . If you also want to store the input values, you can use `evaluate!(f,x)`
+by default, a `CachedFunction` does not store any type of x, so calling `f(x)` will just use (or create) a cache for ´out´ . If you also want to store the input values, you can use `evaluate!(f,x)`. you can access the input and output values stored for each type using the functions `input(f,Type)` and `output(f,Type)`. `allocate!(f,Type)` also allocates a cache for `x`. lets see this in action:
 
 ```julia
 x1 = [1.0,2.0,3.0]
