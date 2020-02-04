@@ -15,6 +15,7 @@ This package maybe can help you!
 This package works with implace functions of the form: `f(out,x)`, where:
 1. `eltype(x) == eltype(out)`
 2. `x` is of type Array.
+3. by default, the caches are not thread-safe or async safe. future releases will add special cached types to deal with this. as a workaround, you can try creating new cached functions instances using `deepcopy(f)`
 
 help on easing those limits is appreciated.
 
