@@ -10,7 +10,7 @@ Out of names for the output caches?
 
 This package maybe can help you!
 
-## limits
+## Limits
 
 This package works with implace functions of the form: `f(out,x)`, where:
 1. `eltype(x) == eltype(out)`
@@ -19,7 +19,7 @@ This package works with implace functions of the form: `f(out,x)`, where:
 
 help on easing those limits is appreciated.
 
-## usage
+## Usage
 
 This is the simplest way to use this Package:
 ```julia
