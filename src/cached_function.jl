@@ -1,81 +1,69 @@
 #real size, returns size or length
-function _size(out::OUT) where OUT
-    if Base.IteratorSize(OUT) == Base.HasLength() #linear struct
-        return length(out)
-    elseif typeof(Base.IteratorSize(OUT)) <: Base.HasShape #sized struct
-        return size(out)
-    else
-        error("the size of the output is not known")
-    end
-end
-
-function _size(out::NTuple{N,Int}) where N
-    return out
-end
-
-function _size(out::Int)
-    return (out,)
-end
 
 
 
-struct CachedFunction{F,I,O}
+
+
+struct CachedFunction{F,S,I,O,L}
     f!::F
-    in_size::I
-    out_size::O
-    x_cache::IdDict{DataType, Union{AbstractArray,Number}}
+    storage_type::S ##by default, a plain array
+    in_size::SIZE{I} #a ntuple of ints
+    out_size::SIZE{O} #a ntuple of ints
+    x_cache::IdDict{DataType, S}
     closures::IdDict{DataType, Function}
     f_calls::Vector{Int64}
+    lock::L
 end
 
 
 
-CachedFunction(f!,in,out) = CachedFunction(f!,_size(in),_size(out),IdDict{DataType, Union{AbstractArray,Number}}(),IdDict{DataType, Function}(),[0])
 
-function make_cache(f!,in,out) 
-    return deepcopy(out)
+
+function CachedFunction(f!,_in::SIZE,out::SIZE,stype=Array) 
+    storage_type = type_constructor(stype,out)
+    in_size = _in
+    out_size = out
+    x_cache =  IdDict{DataType,type_constructor(stype,in)}()
+    closures = IdDict{DataType, Function}()
+    f_calls = [0]
+    lock = ReentrantLock()
+    return CachedFunction(f!,storage_type,in_size,out_size,x_cache,closures,f_calls,lock)
 end
 
-function make_cache(f!,in,out::NTuple{N,Int}) where N 
-    return similar(in,out)
-end
+#creates an instance of the cache, using the storage_type and the size. uses type constructor
 
-#generates an array of eltype in
-function make_cache(f!,in::Type{T},out::NTuple{N,Int}) where {T<:Number,N} 
-    out_size = _size(out)
-    return Array{T,length(out_size)}(undef,out_size)
-end
+#generates an array of _eltype in
 
 
-function make_out_of_place_func(f!,in,out)
-    out_cache = make_cache(f!,in,out)
+function make_closure!(f!,stype,_eltype,_size)
+    out_cache = make_cache!(f!,stype,_eltype,_size)
     return x -> f!(out_cache, x)
 end
 
 eval_f(f::F, x) where {F} = f(x) 
 
-function (cached_fn::CachedFunction{F,O})(x) where {F,O}
-    X = eltype(x)
-    out = cached_fn.out_size
-    f = get!(() -> make_out_of_place_func(cached_fn.f!, x,out), cached_fn.closures, X)
-    cached_fn.f_calls[1] +=1
+function (cfn::CachedFunction{F,O})(x) where {F,O}
+    X = _eltype(x)
+    out = cfn.out_size
+    f = get!(() -> make_closure!(cfn.f!,O,X,out), cfn.closures, X)
+    cfn.f_calls[1] +=1
     return eval_f(f, x)
 end
 
-function allocate!(cached_fn::CachedFunction{F,O},x)  where {F,O}
-    X = eltype(x)
-    out = cached_fn.out_size
-    get!(cached_fn.x_cache,X,similar(x))
-    get!(() -> make_out_of_place_func(cached_fn.f!, x,out), cached_fn.closures, X)
+function allocate!(cfn::CachedFunction{F,O},x)  where {F,O}
+    X = _eltype(x)
+    out = cfn.out_size
+    _in = cfn.in_size
+    get!(cfn.x_cache,X, x) #if x is not of the correct type, then it will throw an error.
+    get!(() ->  make_closure!(cfn.f!,O,X,out), cfn.closures, X)
     return nothing
 end
 
-function allocate!(cached_fn::CachedFunction{F,O},x::Type{X})  where {F,O,X}
-    out = cached_fn.out_size
-    in_size = _size(cached_fn.in_size)
-    xarray = Array{X,length(in_size)}(undef,in_size)
-    get!(cached_fn.x_cache,X,xarray)
-    get!(() -> make_out_of_place_func(cached_fn.f!, x,out), cached_fn.closures, X)
+function allocate!(cfn::CachedFunction{F,O},x::Type{X})  where {F,O,X}
+    out = cfn.out_size
+    _in = _size(cfn.in_size)
+    get!(cfn.x_cache,X, make_cache!(cfn.f!,O,X,_in))
+    get!(() -> make_closure!(cfn.f!,O,X,out), cfn.closures, X)
     return nothing
 end
 #@btime c($[1.0,2.0])
@@ -84,7 +72,9 @@ end
 
 
 ###calls###
-
+"""
+returns how many times has ´f´ been called.
+"""
 calls(f::CachedFunction) = f.f_calls[]
 
 
@@ -92,7 +82,8 @@ calls(f::CachedFunction) = f.f_calls[]
 
 """
 returns the output cache stored in ´f´
-Returns `f(x)`, it doesn' t store the input
+Returns `f(x)`, it doesn' t store the input.
+if your function has only one type cached, you can get the output cache without adding the type.
 """
 function output(f::CachedFunction)
     if length(c.closures) == 1
@@ -110,14 +101,15 @@ function output(f::CachedFunction,x::Type{T}) where T
     else
         res = get(c.closures,T,nothing)
         if isnothing(res)
-        error("there aren't any output caches of type $T in cached function.")
+            TT = T.name.wrapper
+        error("there aren't any output caches of type $TT in cached function.")
         else
             return res.out_cache
         end
     end
 end
 
-output(f::CachedFunction,x) = output(f,eltype(x))
+output(f::CachedFunction,x) = output(f,_eltype(x))
 
 
 
@@ -129,14 +121,15 @@ function input(f::CachedFunction,x::Type{T}) where T
     else
         res = get(c.x_cache,T,nothing)
         if isnothing(res)
-        error("there aren't any input caches of type $T in cached function.")
+        TT = T.name.wrapper
+        error("there aren't any input caches of type $TT in cached function.")
         else
             return res
         end
     end
 end
 
-input(f::CachedFunction,x) = input(f,eltype(x))
+input(f::CachedFunction,x) = input(f,_eltype(x))
 
 
 ####evaluate#####
@@ -151,8 +144,6 @@ evaluate(f::CachedFunction,x) = f(x)
 ####evaluate!#####
 ##evaluates cached_f and stores x
 
-
-
 """
     evaluate!(f,x)
 
@@ -160,17 +151,17 @@ Force (re-)evaluation of the cached function at `x`.
 Returns `f(x)` and stores the input value.
 
 """
-function evaluate!(cached_fn::CachedFunction,x)
-    X = eltype(x)
-    out = cached_fn.out_size
-    if haskey(cached_fn.x_cache,X)
-        xx = get(cached_fn.x_cache,X,nothing)
+function evaluate!(cfn::CachedFunction,x)
+    X = _eltype(x)
+    out = cfn.out_size
+    if haskey(cfn.x_cache,X)
+        xx = get(cfn.x_cache,X,nothing)
         copyto!(xx,x)
     else
-        xx = get!(cached_fn.x_cache,X,x)
+        xx = get!(cfn.x_cache,X,x)
     end
-    f = get!(() -> make_out_of_place_func(cached_fn.f!, x,out), cached_fn.closures, X)
-    cached_fn.f_calls[1] +=1
+    f = get!(() -> make_closure!(cfn.f!, x,out), cfn.closures, X)
+    cfn.f_calls[1] +=1
     return eval_f(f, xx)
 end
 
@@ -182,4 +173,11 @@ function Base.show(io::IO, fn::CachedFunction)
     println(io, "cached version of $name (function with $n_methods cached $_methods)")
 end
 
+
 methods(f::CachedFunction) = f.closures
+
+
+#lock methods
+Base.islocked(cfn::CachedFunction) = islocked(cfn.lock)
+Base.lock(f, cfn::CachedFunction) = lock(f, cfn.lock)
+Base.trylock(f, cfn::CachedFunction) = trylock(f, cfn.lock)
