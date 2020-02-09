@@ -4,66 +4,72 @@
 
 
 
-struct CachedFunction{F,S,I,O,L}
+struct CachedFunction{F,I,O,S}
     f!::F
-    storage_type::S ##by default, a plain array
-    in_size::SIZE{I} #a ntuple of ints
-    out_size::SIZE{O} #a ntuple of ints
+    input::I #prototype info for input
+    output::O #prototype info for input
     x_cache::IdDict{DataType, S}
     closures::IdDict{DataType, Function}
     f_calls::Vector{Int64}
-    lock::L
+    lock::ReentrantLock
 end
 
 
 
 
 
-function CachedFunction(f!,_in::SIZE,out::SIZE,stype=Array) 
-    storage_type = type_constructor(stype,out)
-    in_size = _in
-    out_size = out
-    x_cache =  IdDict{DataType,type_constructor(stype,in)}()
+
+function CachedFunction(f!,_in::SIZE{N1},_out::SIZE{N2}) where {N1,N2}
+    input = Prototype(Array{Float64,N1},_in)
+    output = Prototype(Array{Float64,N2},out)
+    x_cache =  IdDict{DataType,Array{Any,N1}}()
     closures = IdDict{DataType, Function}()
     f_calls = [0]
     lock = ReentrantLock()
-    return CachedFunction(f!,storage_type,in_size,out_size,x_cache,closures,f_calls,lock)
+    return CachedFunction(f!,input,output,x_cache,closures,f_calls,lock)
 end
+
+
+function CachedFunction(f!,_in::T1,out::T2) where {T1,T2}
+    input = prototype(_in)
+    output = prototype(out)
+    x_cache =  IdDict{DataType,T1.name.wrapper}()
+    closures = IdDict{DataType, Function}()
+    f_calls = [0]
+    lock = ReentrantLock()
+    return CachedFunction(f!,input,output,x_cache,closures,f_calls,lock)
+end
+
 
 #creates an instance of the cache, using the storage_type and the size. uses type constructor
 
 #generates an array of _eltype in
 
 
-function make_closure!(f!,stype,_eltype,_size)
-    out_cache = make_cache!(f!,stype,_eltype,_size)
+function make_closure!(f!,prototype,elem_type)
+    out_cache = make_cache!(f!,prototype,elem_type)
     return x -> f!(out_cache, x)
 end
 
 eval_f(f::F, x) where {F} = f(x) 
 
-function (cfn::CachedFunction{F,O})(x) where {F,O}
-    X = _eltype(x)
-    out = cfn.out_size
-    f = get!(() -> make_closure!(cfn.f!,O,X,out), cfn.closures, X)
+function (cfn::CachedFunction{F})(x) where {F}
+    X = valtype(x)
+    f = get!(() -> make_closure!(cfn.f!, cfn.output, X),cfn.closures,X)
     cfn.f_calls[1] +=1
     return eval_f(f, x)
 end
 
-function allocate!(cfn::CachedFunction{F,O},x)  where {F,O}
-    X = _eltype(x)
-    out = cfn.out_size
-    _in = cfn.in_size
-    get!(cfn.x_cache,X, x) #if x is not of the correct type, then it will throw an error.
-    get!(() ->  make_closure!(cfn.f!,O,X,out), cfn.closures, X)
+function allocate!(cfn::CachedFunction{F},x)  where {F}
+    X = valtype(x)
+    get!(() -> x,cfn.x_cache,X)
+    get!(() -> make_closure!(cfn.f!, cfn.output, X),cfn.closures,X)
     return nothing
 end
 
-function allocate!(cfn::CachedFunction{F,O},x::Type{X})  where {F,O,X}
-    out = cfn.out_size
-    _in = _size(cfn.in_size)
-    get!(cfn.x_cache,X, make_cache!(cfn.f!,O,X,_in))
-    get!(() -> make_closure!(cfn.f!,O,X,out), cfn.closures, X)
+function allocate!(cfn::CachedFunction{F},x::Type{X})  where {F,X}
+    get!(() -> make_cache!(cfn.f!, cfn.input, X),cfn.x_cache,X)
+    get!(() -> make_closure!(cfn.f!, cfn.output, X),cfn.closures,X)
     return nothing
 end
 #@btime c($[1.0,2.0])
@@ -85,21 +91,21 @@ returns the output cache stored in ´f´
 Returns `f(x)`, it doesn' t store the input.
 if your function has only one type cached, you can get the output cache without adding the type.
 """
-function output(f::CachedFunction)
-    if length(c.closures) == 1
-        return last(first(c.closures)).out_cache
-    elseif length(c.closures) == 0
+function output(cfn::CachedFunction)
+    if length(cfn.closures) == 1
+        return last(first(cfn.closures)).out_cache
+    elseif length(cfn.closures) == 0
         error("there aren't any output caches allocated in cached function")
     else
         error("there are more than one type of output cache stored in cached function.")
     end
 end
 
-function output(f::CachedFunction,x::Type{T}) where T
-    if length(c.closures) == 0
+function output(cfn::CachedFunction,x::Type{T}) where T
+    if length(cfn.closures) == 0
         error("there aren't any output caches allocated in cached function.")
     else
-        res = get(c.closures,T,nothing)
+        res = get(cfn.closures,T,nothing)
         if isnothing(res)
             TT = T.name.wrapper
         error("there aren't any output caches of type $TT in cached function.")
@@ -109,17 +115,17 @@ function output(f::CachedFunction,x::Type{T}) where T
     end
 end
 
-output(f::CachedFunction,x) = output(f,_eltype(x))
+output(f::CachedFunction,x) = output(f,valtype(x))
 
 
 
 ###input####
 
-function input(f::CachedFunction,x::Type{T}) where T
-    if length(c.x_cache) == 0
+function input(cfn::CachedFunction,x::Type{T}) where T
+    if length(cfn.x_cache) == 0
         error("there aren't any input caches allocated in cached function")
     else
-        res = get(c.x_cache,T,nothing)
+        res = get(cfn.x_cache,T,nothing)
         if isnothing(res)
         TT = T.name.wrapper
         error("there aren't any input caches of type $TT in cached function.")
@@ -129,7 +135,7 @@ function input(f::CachedFunction,x::Type{T}) where T
     end
 end
 
-input(f::CachedFunction,x) = input(f,_eltype(x))
+input(f::CachedFunction,x) = input(f,valtype(x))
 
 
 ####evaluate#####
@@ -152,7 +158,7 @@ Returns `f(x)` and stores the input value.
 
 """
 function evaluate!(cfn::CachedFunction,x)
-    X = _eltype(x)
+    X = valtype(x)
     out = cfn.out_size
     if haskey(cfn.x_cache,X)
         xx = get(cfn.x_cache,X,nothing)
@@ -160,11 +166,10 @@ function evaluate!(cfn::CachedFunction,x)
     else
         xx = get!(cfn.x_cache,X,x)
     end
-    f = get!(() -> make_closure!(cfn.f!, x,out), cfn.closures, X)
+    f = get!(() -> make_closure!(cfn.f!, cfn.output, X),cfn.closures,X)
     cfn.f_calls[1] +=1
-    return eval_f(f, xx)
+    return eval_f(f, x)
 end
-
 
 function Base.show(io::IO, fn::CachedFunction)
     n_methods = length(fn.closures)
@@ -174,7 +179,7 @@ function Base.show(io::IO, fn::CachedFunction)
 end
 
 
-methods(f::CachedFunction) = f.closures
+cached_methods(f::CachedFunction) = f.closures
 
 
 #lock methods
