@@ -14,7 +14,7 @@ This package maybe can help you!
 
 This package works with implace functions of the form: `f(out,x)`, where:
 1. `eltype(x) == eltype(out)`
-2. `x` is of type Array.
+2. `x` is of type Array,Dict,SparseVector,or SparseArray
 3. by default, the caches are not thread-safe or async safe. future releases will add special cached types to deal with this. as a workaround, you can try creating new cached functions instances using `deepcopy(f)`
 
 help on easing those limits is appreciated.
@@ -50,13 +50,12 @@ julia> f
 cached version of f! (function with 2 cached methods)
 julia> calls(f)
 5
-julia> methods(f)
+julia> cached_methods(f)
 IdDict{DataType,Function} with 2 entries:
   Float64 => #198
   Float32 => #198
 ```
-All the cached methods are stored in `methods(f)`. you can take one and use it if you want. each method is a closure
-with the specific cache created. and if the cache doesn't exists, it's created on the fly during runtime.
+A dict with all cached closures for each type is stored in `cached_methods(f)`. you can take one and use it if you want. If the cache doesn't exists, it's created on the fly during runtime.
 
 What happens if i don't want to allocate during runtime?, The solution: use `allocate!(f,Type)`
 
