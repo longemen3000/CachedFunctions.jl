@@ -1,9 +1,3 @@
-#real size, returns size or length
-
-
-
-
-
 struct CachedFunction{F,I,O,S}
     f!::F
     input::I #prototype info for input
@@ -13,11 +7,6 @@ struct CachedFunction{F,I,O,S}
     f_calls::Vector{Int64}
     lock::ReentrantLock
 end
-
-
-
-
-
 
 function CachedFunction(f!,_in::SIZE{N1},_out::SIZE{N2}) where {N1,N2}
     input = Prototype(Array{Float64,N1},_in)
