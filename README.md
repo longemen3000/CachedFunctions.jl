@@ -4,7 +4,7 @@
 
 Bored of creating your cache each time when having a function `f!(out,x)`?
 
-Problems defining a higher order jacobian with inplace functions?
+Problems defining a higher-order Jacobian with inplace functions?
 
 Out of names for the output caches?
 
@@ -12,9 +12,9 @@ This package maybe can help you!
 
 ## Limits
 
-This package works with implace functions of the form: `f(out,x)`, where:
+This package works with inplace functions of the form: `f(out,x)`, where:
 1. `eltype(x) == eltype(out)`
-2. `x` is of type Array,Dict,SparseVector,or SparseArray
+2. `x` is of type Array, Dict, SparseVector, or SparseArray
 3. by default, the caches are not thread-safe or async safe. future releases will add special cached types to deal with this. as a workaround, you can try creating new cached functions instances using `deepcopy(f)`
 
 help on easing those limits is appreciated.
@@ -85,12 +85,11 @@ out1 ==   output(f,Float64) #false
 evaluate(f,x1) #restores the output cache to f(x1)
 out1 ==   output(f,Float64) #true
 ```
+
 ## I can do this myself, why did you do this?
 
 The problem occurs when you need to calculate jacobians of jacobians. how many caches i need to create? of what types?
 
 ## I like it! but i want more functionality
 
-i'm open,really open to pull requests and issues. write something and we will se what we can do.
-
-
+I'm open, really open to pull requests and issues. Write something and we will see what we can do.
