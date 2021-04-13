@@ -14,7 +14,7 @@ This package maybe can help you!
 
 This package works with inplace functions of the form: `f(out,x)`, where:
 1. `eltype(x) == eltype(out)`
-2. `x` is of type Array, Dict, SparseVector, or SparseArray
+2. `x` is of type `Array`, `Dict`, `SparseVector`, or `SparseArray`
 3. by default, the caches are not thread-safe or async safe. future releases will add special cached types to deal with this. as a workaround, you can try creating new cached functions instances using `deepcopy(f)`
 
 help on easing those limits is appreciated.
@@ -68,7 +68,7 @@ cached version of f! (function with 3 cached methods)
 ```
 ## Accesing without evaluating
 
-by default, a `CachedFunction` does not store any type of x, so calling `f(x)` will just use (or create) a cache for ´out´ . If you also want to store the input values, you can use `evaluate!(f,x)`. you can access the input and output values stored for each type using the functions `input(f,Type)` and `output(f,Type)`. `allocate!(f,Type)` also allocates a cache for `x`. lets see this in action:
+by default, a `CachedFunction` does not store any type of x, so calling `f(x)` will just use (or create) a cache for `out` . If you also want to store the input values, you can use `evaluate!(f,x)`. You can access the input and output values stored for each type using the functions `input(f,Type)` and `output(f,Type)`. `allocate!(f,Type)` also allocates a cache for `x`. lets see this in action:
 
 ```julia
 x1 = [1.0,2.0,3.0]

@@ -1,7 +1,7 @@
 name = "CachedFunctions"
 uuid = "ed268df6-2d29-4139-a3e0-ddeb8be80dc7"
 authors = ["longemen3000"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"

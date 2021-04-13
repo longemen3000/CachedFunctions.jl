@@ -45,13 +45,39 @@ function make_closure!(f!,prototype,elem_type)
     return x -> f!(out_cache, x)
 end
 
+function make_closure!(f!,prototype,elem_type,t)
+    out_cache = make_cache!(f!,prototype,elem_type)
+    return (x,t) -> f!(out_cache, x,t)
+end
+
+function make_closure!(f!,prototype,elem_type,t1,t2)
+    out_cache = make_cache!(f!,prototype,elem_type)
+    return (x,t1,t2) -> f!(out_cache, x,t1,t2)
+end
+
 eval_f(f::F, x) where {F} = f(x) 
+eval_f(f::F, x,t) where {F} = f(x,t) 
+eval_f(f::F, x,t1,t2) where {F} = f(x,t1,t2) 
 
 function (cfn::CachedFunction{F})(x) where {F}
     X = valtype(x)
     f = get!(() -> make_closure!(cfn.f!, cfn.output, X),cfn.closures,X)
     cfn.f_calls[] +=1
     return eval_f(f, x)
+end
+
+function (cfn::CachedFunction{F})(x,t) where {F}
+    X = promote_type(valtype(x),eltype(t))
+    f = get!(() -> make_closure!(cfn.f!, cfn.output, X,t),cfn.closures,X)
+    cfn.f_calls[] +=1
+    return eval_f(f, x, t)
+end
+
+function (cfn::CachedFunction{F})(x,t1,t2) where {F}
+    X = promote_type(valtype(x),eltype(t1),eltype(t2))
+    f = get!(() -> make_closure!(cfn.f!, cfn.output, X,t1,t2),cfn.closures,X)
+    cfn.f_calls[] +=1
+    return eval_f(f, x, t)
 end
 
 function allocate!(cfn::CachedFunction{F},x)  where {F}
