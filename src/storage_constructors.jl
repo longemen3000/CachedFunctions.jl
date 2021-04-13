@@ -14,10 +14,11 @@ struct Prototype{S,T}
 end
 
 
-prototype(x::T) where T<:Array = Prototype(typeof(x),(eltype(x),size(x)))
-prototype(d::T) where T<:Dict = Prototype(typeof(d),(valtype(d),d.slots, d.keys, d.ndel, d.count, d.age, d.idxfloor, d.maxprobe))
-prototype(sv::T) where T<:SparseArrays.SparseVector = Prototype(typeof(sv),(eltype(sv),sv.n,sv.nzind))                            
-prototype(sm::T) where T<:SparseArrays.SparseMatrixCSC = Prototype(typeof(sm),(eltype(sm),size(sm),sm.rowval,sm.colptr))                            
+prototype(x::T) where T<:Array = Prototype(T,(eltype(x),size(x)))
+prototype(d::T) where T<:Dict = Prototype(T,(valtype(d),d.slots, d.keys, d.ndel, d.count, d.age, d.idxfloor, d.maxprobe))
+prototype(sv::T) where T<:SparseArrays.SparseVector = Prototype(T,(eltype(sv),sv.n,sv.nzind))                            
+prototype(sm::T) where T<:SparseArrays.SparseMatrixCSC = Prototype(T,(eltype(sm),size(sm),sm.rowval,sm.colptr))                            
+
 
 function make_cache!(f!,p::P,elem_type) where {P <: Prototype}
     return make_cache!(p.type,f!,p,elem_type)

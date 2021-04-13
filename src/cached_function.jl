@@ -3,16 +3,16 @@ struct CachedFunction{F,I,O,S}
     input::I #prototype info for input
     output::O #prototype info for input
     x_cache::IdDict{DataType, S}
-    closures::IdDict{DataType, Function}
+    closures::IdDict{DataType, Any}
     f_calls::Vector{Int64}
     lock::ReentrantLock
 end
 
 function CachedFunction(f!,_in::SIZE{N1},_out::SIZE{N2}) where {N1,N2}
-    input = Prototype(Array{Float64,N1},_in)
-    output = Prototype(Array{Float64,N2},out)
+    input = Prototype(Array{Float64,N1},(Float64,_in))
+    output = Prototype(Array{Float64,N2},(Float64,_out))
     x_cache =  IdDict{DataType,Array{Any,N1}}()
-    closures = IdDict{DataType, Function}()
+    closures = IdDict{DataType, Any}()
     f_calls = [0]
     lock = ReentrantLock()
     return CachedFunction(f!,input,output,x_cache,closures,f_calls,lock)
@@ -23,11 +23,16 @@ function CachedFunction(f!,_in::T1,out::T2) where {T1,T2}
     input = prototype(_in)
     output = prototype(out)
     x_cache =  IdDict{DataType,T1.name.wrapper}()
-    closures = IdDict{DataType, Function}()
+    closures = IdDict{DataType, Any}()
     f_calls = [0]
     lock = ReentrantLock()
     return CachedFunction(f!,input,output,x_cache,closures,f_calls,lock)
 end
+
+function CachedFunction(f!,_in::Int,_out::Int) 
+    return CachedFunction(f!,(_in,),(_out,))
+end
+
 
 
 #creates an instance of the cache, using the storage_type and the size. uses type constructor
@@ -45,7 +50,7 @@ eval_f(f::F, x) where {F} = f(x)
 function (cfn::CachedFunction{F})(x) where {F}
     X = valtype(x)
     f = get!(() -> make_closure!(cfn.f!, cfn.output, X),cfn.closures,X)
-    cfn.f_calls[1] +=1
+    cfn.f_calls[] +=1
     return eval_f(f, x)
 end
 
@@ -164,7 +169,7 @@ function Base.show(io::IO, fn::CachedFunction)
     n_methods = length(fn.closures)
     _methods = n_methods == 1 ? "method" : "methods"
     name = string(fn.f!)
-    println(io, "cached version of $name (function with $n_methods cached $_methods)")
+    print(io, "cached version of $name (function with $n_methods cached $_methods)")
 end
 
 
